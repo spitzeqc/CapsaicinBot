@@ -47,7 +47,7 @@ public class CapsaicinBot extends ListenerAdapter {
      * This is subject to change
      *
      * @return List of commands from each Chili
-     * @throws IOException
+     * @throws IOException Throws IOError if a file related error occurs
      */
     private static List<CommandData> loadChilies() throws IOException {
         //see if directory exists, if not create it
@@ -66,19 +66,10 @@ public class CapsaicinBot extends ListenerAdapter {
             throw new IOException(CHILIES_PATH + " is not a valid directory");
         }
 
-        /*LinkedList<JarFile> jarFiles = new LinkedList<>();
-        for ( File f : Objects.requireNonNull(chiliDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"))) ) {
-            jarFiles.add(new JarFile(f.getPath()));
-        }*/
-
         //get list of jars
-        File[] jars = chiliDir.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File pathname) {
-                return pathname.getPath().toLowerCase().endsWith(".jar");
-            }
-        });
+        File[] jars = chiliDir.listFiles(pathname -> pathname.getPath().toLowerCase().endsWith(".jar"));
 
+        assert jars != null;
         URL[] urls = new URL[jars.length];
         for(int i=0; i<jars.length; ++i) {
             urls[i] = jars[i].toURI().toURL();
@@ -86,35 +77,19 @@ public class CapsaicinBot extends ListenerAdapter {
         URLClassLoader ucl = new URLClassLoader(urls);
 
         //load each Chili
-        ServiceLoader<Chili> sl = ServiceLoader.load(Chili.class, ucl);
-        Iterator<Chili> apit = sl.iterator();
-        while(apit.hasNext()) {
-            List<CommandData> c = apit.next().getCommands();
-            if (c != null)
-                commands.addAll(c);
+        chiliServiceLoader = ServiceLoader.load(Chili.class, ucl);
+        for(Chili c: chiliServiceLoader) {
+            List<CommandData> temp = c.getCommands();
+            if(temp != null)
+                commands.addAll(temp);
         }
 
-        //for( JarFile j : jarFiles ) {}
-
-/*
-        //temporary, remove when class loader is working
-        chiliObjects.add(new com.cornchip.capsaicin.chilies.Uwu());
-        //chiliObjects.add(new com.cornchip.capsaicin.chilies.Network());
-        chiliObjects.add(new com.cornchip.capsaicin.chilies.UserReactions());
-        chiliObjects.add(new com.cornchip.capsaicin.chilies.Typo());
-        chiliObjects.add(new com.cornchip.capsaicin.chilies.BetterUnits());
-
-        for(Chili c: chiliObjects) {
-            if (c.getCommands() != null)
-                commands.addAll(c.getCommands());
-        }
- */
         return commands;
     }
 
     /**
-     * Used for getting the
-     * @return
+     * Used for getting the path where Chilies are stored
+     * @return String of the path
      */
     public static String getChiliesPath() { return CHILIES_PATH; }
 
@@ -123,7 +98,7 @@ public class CapsaicinBot extends ListenerAdapter {
      * If no config is found, a config file will be generated at CONFIG_PATH and populated with default values and returns null
      *
      * @return JSON of our config. Returns null if config file was generated
-     * @throws IOException
+     * @throws IOException Throws IOException if error occurs loading the config file
      */
     private static JSONObject loadConfig() throws IOException{
         //check if config file exists. If not, create it
@@ -195,6 +170,7 @@ public class CapsaicinBot extends ListenerAdapter {
         }
 
         //load json to variables
+        assert configJson != null;
         String token = (String) configJson.get("token");
         String playingMessage = (String) configJson.get("playingMessage");
         boolean testingMode = (boolean) configJson.get("testingMode");
@@ -275,12 +251,5 @@ public class CapsaicinBot extends ListenerAdapter {
     public void onGenericUpdate(@NotNull UpdateEvent<?,?> updateEvent){
         for(Chili c: chiliServiceLoader)
             c.runUpdateEvent(updateEvent);
-    }
-
-    /**
-     *
-     */
-    protected class EconomyUpdate {
-
     }
 }
